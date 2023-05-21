@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <linux/input-event-codes.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -899,6 +900,7 @@ createmon(struct wl_listener *listener, void *data)
 {
 	/* This event is raised by the backend when a new output (aka a display or
 	 * monitor) becomes available. */
+    struct wlr_output_mode *mode, *choice;
 	struct wlr_output *wlr_output = data;
 	const MonitorRule *r;
 	size_t i;
@@ -929,7 +931,15 @@ createmon(struct wl_listener *listener, void *data)
 	 * monitor supports only a specific set of modes. We just pick the
 	 * monitor's preferred mode; a more sophisticated compositor would let
 	 * the user configure it. */
-	wlr_output_set_mode(wlr_output, wlr_output_preferred_mode(wlr_output));
+    choice = wlr_output_preferred_mode(wlr_output);
+    wl_list_for_each(mode, &wlr_output->modes, link) {
+        int res_higher_or_eq = mode->width >= choice->width || mode->height >= choice->height;
+        if (mode->refresh > choice->refresh && res_higher_or_eq) {
+            choice = mode;
+        }
+    }
+	wlr_output_set_mode(wlr_output, choice);
+    printf("%s mode: %dx%d@%d\n", wlr_output->name, choice->width, choice->height, choice->refresh / 1000);
 
 	/* Set up event listeners */
 	LISTEN(&wlr_output->events.frame, &m->frame, rendermon);
